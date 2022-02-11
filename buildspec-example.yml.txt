@@ -1,0 +1,57 @@
+env:
+ parameter-store:
+   private_key_github: "/ssh/private_key_github"
+
+
+phases:
+ pre_build:
+   commands:
+     - if [ "$CODEBUILD_INITIATOR" = "BRANCH-stage" ] ; then
+         export GIT_BRANCH="stage";
+         export NAME_ENV="stage";
+         export DOC_BUCKET="Bucket_docs_stage";
+       fi
+     - if [ "$CODEBUILD_INITIATOR" = "BRANCH-sandbox" ] ; then
+         export GIT_BRANCH="sandbox";
+         export NAME_ENV="sandbox";
+         export DOC_BUCKET="Bucket_docs_sandbox";
+       fi
+     - if [ "$CODEBUILD_INITIATOR" = "BRANCH-production" ] ; then
+         export GIT_BRANCH="master";
+         export NAME_ENV="production";
+         export DOC_BUCKET="Bucket_docs-prod";
+       fi
+     - echo "GIT_BRANCH ========> $GIT_BRANCH"
+     - echo Install serverless
+     - npm install -g serverless@2.68.0
+     - npm install -g json@11.0.0
+     - echo "get API_VERSION"
+     - export SLS_WARNING_DISABLE="*"
+     - export SLS_DEPRECATION_DISABLE="*"
+     - export API_VERSION=$(sls print --path provider.environment.API_VERSION --stage $NAME_ENV --format text)
+     - echo "API_VERSION ========> $API_VERSION"
+ build:
+   commands:
+     - echo Deploy serverless started on `date`
+     - echo Deploy completed on `date`
+     - export query="items[?name=='"$NAME_ENV"-api'].[id]"
+     - export restApiId=$(aws apigateway get-rest-apis --query $query --output text)
+     - cd ..
+     - mkdir -p ~/.ssh
+     - echo "$private_key_github" > ~/.ssh/id_rsa
+     - chmod 0600 ~/.ssh/id_rsa
+     - echo Cloning swagger-ui-dist-api Repository  ...
+     - git clone REPO/swagger-ui-dist-api.git
+     - cd swagger-ui-dist-api
+     - git checkout $GIT_BRANCH
+     - git pull origin $GIT_BRANCH
+     - echo Download swagger documentation
+     - aws apigateway get-export --parameters extensions='apigateway' --rest-api-id $restApiId --stage-name $NAME_ENV --export-type swagger swagger.json
+     - aws s3 sync ../swagger-ui-dist-api/ "s3://$DOC_BUCKET/$API_VERSION/" --exclude '.git/*'
+
+post-build:
+
+ Send some SNS
+
+
+
