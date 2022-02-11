@@ -1,4 +1,4 @@
-#ML Engineering Challenge Kueski
+# ML Engineering Challenge Kueski
 ## Build the Data Pipeline
 
 The feature extraction pipeline got implemented on Pyspark for a more efficient execution, the issue generating the feature “average amount of previous loans” got solved by using Spark’s windows functions, the execution time for the whole dataset got reduced to seconds with the possibility of profiling it if more precision is needed.
